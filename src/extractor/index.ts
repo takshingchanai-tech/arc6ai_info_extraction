@@ -10,13 +10,14 @@ export interface ExtractionRequest {
   filename: string
   mimetype?: string
   prompt?: string   // optional custom prompt for vision path
+  raw?: boolean     // if true, skip Markdown formatting and return raw extracted text (text path only)
 }
 
 export interface ExtractionResponse {
-  content: string             // full extracted content as Markdown
+  content: string             // extracted content — Markdown (default) or raw text (raw=true)
   format: FileFormat
   method: 'text' | 'vision'
-  model: 'gpt-4o-mini' | 'gpt-4o'
+  model: 'gpt-4o-mini' | 'gpt-4o' | null  // null when raw=true on text path (no LLM called)
 }
 
 export async function run(client: OpenAI, req: ExtractionRequest): Promise<ExtractionResponse> {
@@ -26,7 +27,7 @@ export async function run(client: OpenAI, req: ExtractionRequest): Promise<Extra
     throw new Error(`Unsupported file format: ${req.filename}`)
   }
 
-  // Images always go to vision — no text to extract
+  // Images always go to vision — no text to extract, raw flag has no effect
   if (IMAGE_FORMATS.has(format)) {
     const content = await extractVision(client, req.buffer, format, req.prompt)
     return { content, format, method: 'vision', model: 'gpt-4o' }
@@ -39,6 +40,11 @@ export async function run(client: OpenAI, req: ExtractionRequest): Promise<Extra
   if (VISION_FORMATS.has(format) && isLowQuality(rawText, req.buffer.length)) {
     const content = await extractVision(client, req.buffer, format, req.prompt)
     return { content, format, method: 'vision', model: 'gpt-4o' }
+  }
+
+  // raw=true — skip Markdown formatting, return raw text directly (saves one LLM call)
+  if (req.raw) {
+    return { content: rawText, format, method: 'text', model: null }
   }
 
   // Good quality text — format as clean Markdown

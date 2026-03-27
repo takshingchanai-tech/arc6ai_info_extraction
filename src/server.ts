@@ -24,6 +24,9 @@ app.post('/extract', async (c) => {
   const prompt = formData.get('prompt')
   const customPrompt = typeof prompt === 'string' && prompt.trim() ? prompt.trim() : undefined
 
+  const rawFlag = formData.get('raw')
+  const raw = rawFlag === 'true' || rawFlag === '1'
+
   const arrayBuffer = await fileEntry.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
 
@@ -35,6 +38,7 @@ app.post('/extract', async (c) => {
       filename: fileEntry.name,
       mimetype: fileEntry.type || undefined,
       prompt: customPrompt,
+      raw,
     })
     return c.json(result)
   } catch (err) {

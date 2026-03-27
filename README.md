@@ -15,13 +15,14 @@ A Cloudflare Worker that extracts content from any document or image and returns
 
 ### `POST /extract`
 
-Extracts content from a file and returns Markdown.
+Extracts content from a file and returns Markdown (or raw text when `raw=true`).
 
 **Request** — multipart/form-data:
 | Field | Required | Description |
 |---|---|---|
 | `file` | Yes | File to extract |
 | `prompt` | No | Custom vision prompt (overrides default; vision path only) |
+| `raw` | No | `"true"` to skip Markdown formatting and return raw extracted text (text path only) |
 
 **Response**:
 ```json
@@ -36,7 +37,7 @@ Extracts content from a file and returns Markdown.
 | Field | Values | Meaning |
 |---|---|---|
 | `method` | `"text"` / `"vision"` | How content was extracted |
-| `model` | `"gpt-4o-mini"` / `"gpt-4o"` | Which model was used |
+| `model` | `"gpt-4o-mini"` / `"gpt-4o"` / `null` | Model used; `null` when `raw=true` on text path (no LLM called) |
 
 ### `GET /health`
 
@@ -59,9 +60,13 @@ Text extraction (unpdf / mammoth / SheetJS / fflate)
      │    (heuristics: tiny text, garbled chars,
      │     unicode replacement chars)
      │
+     ├─ raw=true? ─────────────────────────────────► return raw text (no LLM, 0 cost)
+     │
      ▼
 GPT-4o-mini → clean Markdown (chunked, parallel)
 ```
+
+**`raw=true` use case**: callers that feed the extracted text into their own LLM (e.g. `arc6ai_invoice_processing`) can pass `raw=true` to skip the Markdown formatting step, saving one gpt-4o-mini call per file.
 
 ## Development
 

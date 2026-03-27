@@ -14,6 +14,7 @@ This file provides guidance to Claude Code when working with the `arc6ai_info_ex
 **API endpoint**: `POST /extract` (multipart/form-data)
 - `file` — required, the file to extract
 - `prompt` — optional, custom prompt to override the default vision prompt (vision path only)
+- `raw` — optional, `"true"` to skip Markdown formatting and return raw extracted text (text path only; no LLM called)
 
 **Response**:
 ```json
@@ -21,9 +22,10 @@ This file provides guidance to Claude Code when working with the `arc6ai_info_ex
   "content": "## Document Title\n\n...",
   "format": "pdf",
   "method": "text" | "vision",
-  "model": "gpt-4o-mini" | "gpt-4o"
+  "model": "gpt-4o-mini" | "gpt-4o" | null
 }
 ```
+`model` is `null` when `raw=true` on the text path (no model was invoked).
 
 ## Commands
 
@@ -55,11 +57,15 @@ src/
 3. **Text extraction** — unpdf for PDF, mammoth for DOCX, SheetJS for XLSX/XLS, fflate for PPTX/ODT/ODS/ODP
 4. **Quality judge** (PDF only, no LLM) — 3 heuristics: tiny text in large file, garbled char ratio >30%, unicode replacement chars
 5. **Vision fallback** — if PDF is low quality (scanned), call gpt-4o with native PDF file content type
-6. **Format as Markdown** — good text goes through gpt-4o-mini for clean formatting, chunked at 24k chars
+6. **raw=true shortcut** — if caller passed `raw=true`, return raw text immediately (no LLM, saves one gpt-4o-mini call)
+7. **Format as Markdown** — good text goes through gpt-4o-mini for clean formatting, chunked at 24k chars
+
+**`raw=true` is used by `arc6ai_invoice_processing`** — it feeds extracted text into its own field-extraction LLM, so the Markdown formatting step is unnecessary and wasteful.
 
 ### Models used
 - `gpt-4o` — vision path (images and scanned PDFs); `max_tokens: 4000`
 - `gpt-4o-mini` — text formatting path; `max_tokens: 8000` per chunk, parallel chunks
+- none — text path with `raw=true` (no model invoked)
 
 ### Key implementation notes
 - **mammoth arrayBuffer workaround**: `buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer` — required because Node Buffer shares underlying ArrayBuffer
